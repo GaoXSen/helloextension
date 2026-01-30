@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>科学计算器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <style>
+      :root {
+        --bg1: #0b1024;
+        --bg2: #040816;
+        --glass: rgba(255,255,255,0.06);
+        --border: rgba(173,196,255,0.16);
+        --text: #dfe8ff;
+        --accent: #6aa2ff;
+        --accent2: #9b7bff;
+        --danger: #ff6b7b;
+        --ok: #68e0a1;
+      }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: radial-gradient(1200px 800px at 70% 20%, var(--bg1) 0%, var(--bg2) 60%, #02040c 100%);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        display: grid; place-items: center; overflow: hidden;
+      }
+      .wrap {
+        width: min(880px, calc(100vw - 24px));
+        display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;
+        align-items: stretch;
+      }
+      .panel {
+        background: var(--glass);
+        border: 1px solid var(--border);
+        border-radius: 16px; padding: 14px;
+        box-shadow: 0 8px 30px rgba(50,110,255,0.18) inset, 0 0 24px rgba(80,140,255,0.2);
+        backdrop-filter: blur(8px);
+      }
+      .display { display: grid; gap: 8px; }
+      .expr { font-size: 14px; opacity: 0.8; min-height: 18px; word-break: break-all; }
+      .result { font-size: clamp(22px, 4vw, 36px); text-align: right; padding: 6px 8px; background: rgba(255,255,255,0.04); border-radius: 10px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px; align-content: stretch;
+      }
+      button {
+        appearance: none; border: 1px solid var(--border); color: var(--text);
+        background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+        padding: 12px 10px; border-radius: 12px; font-size: 14px;
+        cursor: pointer; transition: transform .04s ease, background .2s ease, box-shadow .2s ease;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 rgba(106,162,255,0);
+        user-select: none;
+      }
+      button:hover { background: linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.06)); }
+      button:active { transform: translateY(1px) scale(0.99); }
+      .pri { border-color: rgba(120,180,255,0.5); box-shadow: 0 0 0 0 rgba(106,162,255,0.4) inset; }
+      .pri:hover { box-shadow: 0 0 20px 0 rgba(106,162,255,0.25) inset; }
+      .ok { border-color: rgba(104,224,161,0.55); color: #dfffea; }
+      .danger { border-color: rgba(255,107,123,0.55); color: #ffe0e4; }
+      .wide { grid-column: span 2; }
+      .tall { grid-row: span 2; }
+
+      .hud { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+      .badge { padding:6px 10px; border-radius:999px; background: var(--glass); border:1px solid var(--border); }
+      .sub { opacity:.8; font-size:12px; }
+
+      @media (max-width: 720px) {
+        .wrap { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="panel display">
+        <div class="hud">
+          <div class="badge">🧮 科学计算器</div>
+          <div class="sub" id="mode">角度: 弧度</div>
+          <div class="sub" id="mem">内存: 0</div>
+        </div>
+        <div class="expr" id="expr"></div>
+        <div class="result" id="result">0</div>
+      </div>
+
+      <div class="panel">
+        <div class="grid" id="keys">
+          <button data-act="toggleDeg" class="pri">DEG/RAD</button>
+          <button data-key="MC">MC</button>
+          <button data-key="MR">MR</button>
+          <button data-key="M+">M+</button>
+          <button data-key="M-">M-</button>
+          <button data-key="AC" class="danger">AC</button>
+
+          <button data-key="sin">sin</button>
+          <button data-key="cos">cos</button>
+          <button data-key="tan">tan</button>
+          <button data-key="ln">ln</button>
+          <button data-key="log">log</button>
+          <button data-act="del" class="danger">DEL</button>
+
+          <button data-key="sqrt">√</button>
+          <button data-key="^2">x²</button>
+          <button data-key="^">xʸ</button>
+          <button data-key="exp">exp</button>
+          <button data-key="pi">π</button>
+          <button data-key="e">e</button>
+
+          <button data-key="7">7</button>
+          <button data-key="8">8</button>
+          <button data-key="9">9</button>
+          <button data-key="(">(</button>
+          <button data-key=")">)</button>
+          <button data-key="/">÷</button>
+
+          <button data-key="4">4</button>
+          <button data-key="5">5</button>
+          <button data-key="6">6</button>
+          <button data-key="*">×</button>
+          <button data-key="-">-</button>
+          <button data-key="+">+</button>
+
+          <button data-key="1">1</button>
+          <button data-key="2">2</button>
+          <button data-key="3">3</button>
+
+          <button data-act="neg">±</button>
+          <button data-key="0">0</button>
+          <button data-key=">">.</button>
+          <button data-key="!">n!</button>
+          <button data-key="Ans">Ans</button>
+          <button data-act="eq" class="ok">=</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="calculator.js"></script>
+  </body>
+  </html>
