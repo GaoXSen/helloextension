@@ -40,7 +40,7 @@
   const FS=`
   precision mediump float; varying vec3 vN; varying vec3 vPos; 
   uniform vec3 uColor; uniform vec3 uLight; uniform vec3 uAmbient; uniform vec3 uEmissive;
-  void main(){ vec3 N=normalize(vN); vec3 L=normalize(-uLight); float d=max(dot(N,L),0.0); float s=pow(max(dot(reflect(-L,N), normalize(vec3(0,0,1))),0.0),20.0)*0.35; vec3 col=uAmbient+(d+s)*uColor+uEmissive*0.6; gl_FragColor=vec4(col,1.0);} 
+  void main(){ vec3 N=normalize(vN); vec3 L=normalize(-uLight); float d=max(dot(N,L),0.0); float s=pow(max(dot(reflect(-L,N), normalize(vec3(0.0,0.0,1.0))),0.0),22.0)*0.40; float rim = pow(1.0 - max(dot(N, normalize(vec3(0.0,0.0,1.0))), 0.0), 2.2); vec3 col=uAmbient+(d+s)*uColor + rim*uEmissive*0.6; gl_FragColor=vec4(col,1.0);} 
  `;
   function compile(type,src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; }
   const prog=gl.createProgram(); gl.attachShader(prog,compile(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw gl.getProgramInfoLog(prog); gl.useProgram(prog);
@@ -95,7 +95,7 @@
   function updateProj(){ proj = ortho(0,COLS, ROWS,0, -10,10); gl.uniformMatrix4fv(loc.uProj,false,new Float32Array(proj)); }
 
   // Input mapping
-  let selA=null, selB=null;
+  let selA=null, selB=null, hover=null;
   function posToCell(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
     const x = (clientX - rect.left) / rect.width * COLS;
@@ -108,6 +108,8 @@
     const c = posToCell(e.clientX, e.clientY); if(!c) return;
     if(!selA) { selA=c; } else if(!selB) { selB=c; trySwap(); } else { selA=c; selB=null; }
   });
+  canvas.addEventListener('pointermove', (e)=>{ hover = posToCell(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerleave', ()=>{ hover=null; });
 
   function trySwap(){ if(!selA||!selB) return; if(!isAdj(selA,selB)){ selA=selB; selB=null; return; }
     const a=selA,b=selB; const t=board[a.y][a.x]; board[a.y][a.x]=board[b.y][b.x]; board[b.y][b.x]=t;
@@ -126,15 +128,17 @@
 
   // Draw helpers
   function setModel(m){ gl.uniformMatrix4fv(loc.uModel,false,new Float32Array(m)); }
-  function drawCube(x,y, s, color, selected){
+  function drawCube(x,y, t, color, selected, hovered){
     // Render tiles on X-Y plane (Y 向下增加)，Z 仅用于厚度
-    let m=ident(); m=translate(m, x+0.5, y+0.5, 0.0); m=scale(m, 0.9, 0.9, 0.9);
-    setModel(m); gl.uniform3fv(loc.uColor, color); gl.uniform3f(loc.uLight, -0.3, 0.8, -0.4); gl.uniform3f(loc.uAmbient, 0.06,0.07,0.10);
-    const e = selected? [color[0]*0.8, color[1]*0.8, color[2]*0.8] : [0,0,0]; gl.uniform3fv(loc.uEmissive, e);
+    const pulse = selected ? (0.6 + 0.4*Math.abs(Math.sin(t*0.004))) : (hovered ? 0.4 : 0.0);
+    const sxy = 0.88 + 0.02*pulse;
+    let m=ident(); m=translate(m, x+0.5, y+0.5, 0.0); m=scale(m, sxy, sxy, 0.9);
+    setModel(m); gl.uniform3fv(loc.uColor, color); gl.uniform3f(loc.uLight, -0.3, 0.85, -0.45); gl.uniform3f(loc.uAmbient, 0.06,0.07,0.10);
+    const e = selected? [color[0]*0.9, color[1]*0.9, color[2]*0.9] : (hovered ? [color[0]*0.5, color[1]*0.5, color[2]*0.5] : [0,0,0]); gl.uniform3fv(loc.uEmissive, e);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
   }
-  function drawBoard(){
-    gl.clearColor(0.02,0.03,0.08,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  function drawBoard(t){
+    gl.clearColor(0.015,0.02,0.07,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
     // base plate and border (都放在 X-Y 平面上)
     gl.uniform3f(loc.uLight, -0.3, 0.8, -0.4); gl.uniform3f(loc.uAmbient, 0.05,0.06,0.10);
     const edge=[0.7,0.85,1.0], emit=[0.5,0.7,1.0];
@@ -149,16 +153,19 @@
 
     // tiles
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-      const t=board[y][x]; const col=palette[t]; const selected = (selA&&selA.x===x&&selA.y===y) || (selB&&selB.x===x&&selB.y===y);
-      drawCube(x,y, 0.9, col, selected);
+      const tp=board[y][x]; const col=palette[tp];
+      const selected = (selA&&selA.x===x&&selA.y===y) || (selB&&selB.x===x&&selB.y===y);
+      const hovered = (hover&&hover.x===x&&hover.y===y) && !selected;
+      drawCube(x,y, t, col, selected, hovered);
     }
   }
 
-  function draw(){ drawBoard(); }
+  function draw(t){ drawBoard(t); }
 
   function restart(){ score=0; updateScore(); initBoard(); chain(); }
   document.getElementById('btnRestart').onclick = restart;
 
   // init
   resize(); updateScore(); initBoard(); chain();
+  let last=0; function frame(ts){ last=ts; draw(ts); requestAnimationFrame(frame);} requestAnimationFrame(frame);
 })();

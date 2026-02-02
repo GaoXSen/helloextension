@@ -167,6 +167,9 @@
 
   document.getElementById('btnPause').onclick = () => paused = !paused;
   document.getElementById('btnRestart').onclick = () => reset();
+  const btnAuto = document.getElementById('btnAuto');
+  let autoPlay = false;
+  if (btnAuto) btnAuto.onclick = () => { autoPlay = !autoPlay; btnAuto.textContent = '自动运行：' + (autoPlay ? '开' : '关'); };
   document.getElementById('btnAgain').onclick = () => { reset(); };
   document.getElementById('btnClose').onclick = () => {
     // Dismiss overlay and keep final board visible; game remains stopped
@@ -220,6 +223,70 @@
       spawnFood();
       burst(nx, ny, getSkin());
       updateUI();
+    }
+  }
+
+  // ---------- Auto-play (simple pathfinder) ----------
+  function inBounds(x, y){ return x>=0 && y>=0 && x<COLS && y<ROWS; }
+  function willCollideAt(nx, ny){
+    if (!inBounds(nx, ny)) return true;
+    // collide with body except tail (tail moves unless we eat)
+    for (let i=1;i<snake.length;i++){ // allow removing first element (tail)
+      const p = snake[i];
+      if (p.x===nx && p.y===ny) return true;
+    }
+    return false;
+  }
+  function bfsNextDir(){
+    const head = snake[snake.length-1];
+    const target = food;
+    const q = [];
+    const prev = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+    const blocked = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    // mark body except tail as blocked
+    for (let i=0;i<snake.length-1;i++){ const p=snake[i]; blocked[p.y][p.x]=true; }
+    q.push({x:head.x,y:head.y}); prev[head.y][head.x] = {x:-1,y:-1};
+    const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    while(q.length){
+      const c=q.shift();
+      if (c.x===target.x && c.y===target.y) break;
+      for (const d of dirs){
+        const nx=c.x+d.x, ny=c.y+d.y;
+        if (!inBounds(nx,ny)) continue;
+        if (blocked[ny][nx]) continue;
+        if (prev[ny][nx]) continue;
+        prev[ny][nx] = {x:c.x,y:c.y, dir:d};
+        q.push({x:nx,y:ny});
+      }
+    }
+    if (!prev[target.y][target.x]) return null;
+    // backtrack first step
+    let cx=target.x, cy=target.y; let lastStep=null;
+    while(true){ const p=prev[cy][cx]; if (p.x===-1) break; lastStep={x:cx-p.x,y:cy-p.y}; cx=p.x; cy=p.y; }
+    return lastStep; // vector {x,y}
+  }
+  function autoEnqueue(){
+    if (!autoPlay || !alive || paused) return;
+    if (dirQueue.length>0) return; // already scheduled
+    const stepVec = bfsNextDir();
+    if (stepVec){
+      // avoid reversing
+      const lastDir = dir;
+      if (!(lastDir.x === -stepVec.x && lastDir.y === -stepVec.y)) dirQueue.push(stepVec);
+    } else {
+      // fallback: try safe directions preferring food direction
+      const head = snake[snake.length-1];
+      const candidates = [
+        {x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}
+      ].sort((a,b)=>{
+        const da = Math.abs((head.x+a.x)-food.x)+Math.abs((head.y+a.y)-food.y);
+        const db = Math.abs((head.x+b.x)-food.x)+Math.abs((head.y+b.y)-food.y);
+        return da-db;
+      });
+      for (const d of candidates){
+        if (d.x===-dir.x && d.y===-dir.y) continue;
+        const nx=head.x+d.x, ny=head.y+d.y; if (!willCollideAt(nx,ny)){ dirQueue.push(d); break; }
+      }
     }
   }
 
@@ -344,6 +411,7 @@
     ctx.restore();
 
     if (alive && !paused) {
+      autoEnqueue();
       tAccum += dt;
       while (tAccum >= speed) { tAccum -= speed; step(); }
     }
