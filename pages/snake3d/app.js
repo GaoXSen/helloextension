@@ -1,3 +1,4 @@
+// moved to module path
 (() => {
   // Basic WebGL helpers and game state
   const canvas = document.getElementById('gl');

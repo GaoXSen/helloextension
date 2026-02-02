@@ -1,3 +1,4 @@
+// moved to module path
 (() => {
   const canvas = document.getElementById('c');
   const gameEl = document.getElementById('game');

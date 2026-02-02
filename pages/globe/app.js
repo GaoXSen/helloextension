@@ -1,3 +1,4 @@
+// moved to module path
 (() => {
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
@@ -244,4 +245,3 @@
   }
   requestAnimationFrame(frame);
 })();
-

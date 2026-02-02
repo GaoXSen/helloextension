@@ -1,3 +1,4 @@
+// moved to module path
 (() => {
   const exprEl = document.getElementById('expr');
   const resultEl = document.getElementById('result');
@@ -313,4 +314,3 @@
 
   updateUI();
 })();
-
