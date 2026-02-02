@@ -127,22 +127,25 @@
   // Draw helpers
   function setModel(m){ gl.uniformMatrix4fv(loc.uModel,false,new Float32Array(m)); }
   function drawCube(x,y, s, color, selected){
-    let m=ident(); m=translate(m, x+0.5, -0.02, y+0.5); m=scale(m, 0.9, 0.9, 0.9);
+    // Render tiles on X-Y plane (Y 向下增加)，Z 仅用于厚度
+    let m=ident(); m=translate(m, x+0.5, y+0.5, 0.0); m=scale(m, 0.9, 0.9, 0.9);
     setModel(m); gl.uniform3fv(loc.uColor, color); gl.uniform3f(loc.uLight, -0.3, 0.8, -0.4); gl.uniform3f(loc.uAmbient, 0.06,0.07,0.10);
     const e = selected? [color[0]*0.8, color[1]*0.8, color[2]*0.8] : [0,0,0]; gl.uniform3fv(loc.uEmissive, e);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
   }
   function drawBoard(){
     gl.clearColor(0.02,0.03,0.08,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
-    // base plate and border
+    // base plate and border (都放在 X-Y 平面上)
     gl.uniform3f(loc.uLight, -0.3, 0.8, -0.4); gl.uniform3f(loc.uAmbient, 0.05,0.06,0.10);
-    // border edges
     const edge=[0.7,0.85,1.0], emit=[0.5,0.7,1.0];
-    let m=ident(); setModel(scale(translate(m, COLS/2, -0.55, 0), COLS, 0.1, 0.1)); gl.uniform3fv(loc.uColor, [0.05,0.08,0.16]); gl.uniform3fv(loc.uEmissive,[0,0,0]); gl.drawArrays(gl.TRIANGLES, 0, 36);
-    m=ident(); setModel(scale(translate(m, 0, -0.25, ROWS/2), 0.1, 0.1, ROWS)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
-    m=ident(); setModel(scale(translate(m, COLS, -0.25, ROWS/2), 0.1, 0.1, ROWS)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
-    m=ident(); setModel(scale(translate(m, COLS/2, -0.25, 0), COLS, 0.1, 0.1)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
-    m=ident(); setModel(scale(translate(m, COLS/2, -0.25, ROWS), COLS, 0.1, 0.1)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
+    // 背板
+    let m=ident(); setModel(scale(translate(m, COLS/2, ROWS/2, -0.2), COLS, ROWS, 0.1)); gl.uniform3fv(loc.uColor, [0.05,0.08,0.16]); gl.uniform3fv(loc.uEmissive,[0,0,0]); gl.drawArrays(gl.TRIANGLES, 0, 36);
+    // 上下边框
+    m=ident(); setModel(scale(translate(m, COLS/2, 0, 0), COLS, 0.1, 0.12)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
+    m=ident(); setModel(scale(translate(m, COLS/2, ROWS, 0), COLS, 0.1, 0.12)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
+    // 左右边框
+    m=ident(); setModel(scale(translate(m, 0, ROWS/2, 0), 0.1, ROWS, 0.12)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
+    m=ident(); setModel(scale(translate(m, COLS, ROWS/2, 0), 0.1, ROWS, 0.12)); gl.uniform3fv(loc.uColor, edge); gl.uniform3fv(loc.uEmissive, emit); gl.drawArrays(gl.TRIANGLES, 0, 36);
 
     // tiles
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
@@ -159,4 +162,3 @@
   // init
   resize(); updateScore(); initBoard(); chain();
 })();
-
