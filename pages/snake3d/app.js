@@ -218,6 +218,8 @@
   document.getElementById('btnRestart').onclick=()=>reset();
   document.getElementById('btnAgain').onclick=()=>reset();
   document.getElementById('btnClose').onclick=()=>{ overEl.style.display='none'; };
+  const btnAuto3d = document.getElementById('btnAuto3d');
+  let autoPlay = false; if (btnAuto3d) btnAuto3d.onclick = ()=>{ autoPlay=!autoPlay; btnAuto3d.textContent = '自动运行：' + (autoPlay?'开':'关'); };
 
   // Step
   let paused=false;
@@ -294,7 +296,38 @@
   }
 
   // Frame loop
-  let last=0; function frame(t){ const dt= last? (t-last):16; last=t; if(alive && !paused){ tAccum+=dt; while(tAccum>=speed){ tAccum-=speed; step(); } } drawScene(t); requestAnimationFrame(frame); }
+  // --- Auto play helpers ---
+  function inBounds(x,y){ return x>=0 && y>=0 && x<COLS && y<ROWS; }
+  function bfsNextDir(){
+    const head = snake[snake.length-1];
+    const target = food;
+    const prev = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+    const blocked = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+    for(let i=0;i<snake.length-1;i++){ const p=snake[i]; blocked[p.y][p.x]=true; }
+    const q2 = [{x:head.x,y:head.y}]; prev[head.y][head.x]={x:-1,y:-1};
+    const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    while(q2.length){
+      const c=q2.shift(); if (c.x===target.x && c.y===target.y) break;
+      for(const d of dirs){ const nx=c.x+d.x, ny=c.y+d.y; if(!inBounds(nx,ny)||blocked[ny][nx]||prev[ny][nx]) continue; prev[ny][nx]={x:c.x,y:c.y,dir:d}; q2.push({x:nx,y:ny}); }
+    }
+    if(!prev[target.y][target.x]) return null;
+    let cx=target.x, cy=target.y, step=null; while(true){ const p=prev[cy][cx]; if(p.x===-1) break; step={x:cx-p.x,y:cy-p.y}; cx=p.x; cy=p.y; }
+    return step;
+  }
+  function autoEnqueue(){
+    if(!autoPlay || !alive || paused) return; if(q.length>0) return;
+    const vec = bfsNextDir();
+    if(vec){ const lastDir = dir; if(!(lastDir.x===-vec.x && lastDir.y===-vec.y)) q.push(vec); }
+    else{
+      const h=snake[snake.length-1];
+      const candidates=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}].sort((a,b)=>{
+        const da=Math.abs((h.x+a.x)-food.x)+Math.abs((h.y+a.y)-food.y);
+        const db=Math.abs((h.x+b.x)-food.x)+Math.abs((h.y+b.y)-food.y); return da-db; });
+      for(const d of candidates){ if(d.x===-dir.x&&d.y===-dir.y) continue; const nx=h.x+d.x, ny=h.y+d.y; if(inBounds(nx,ny) && !snake.some(p=>p.x===nx&&p.y===ny)){ q.push(d); break; } }
+    }
+  }
+
+  let last=0; function frame(t){ const dt= last? (t-last):16; last=t; if(alive && !paused){ autoEnqueue(); tAccum+=dt; while(tAccum>=speed){ tAccum-=speed; step(); } } drawScene(t); requestAnimationFrame(frame); }
 
   // Init after everything ready
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuf);
